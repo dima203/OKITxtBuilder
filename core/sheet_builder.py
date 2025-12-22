@@ -21,14 +21,12 @@ class SheetBuilder:
             for block in reader.read_block():
                 self.raschet_lists.append(self._process_block(block))
 
-    @logger.catch
     def write(self, output_file_path: str) -> None:
         with FileWriter(output_file_path) as writer:
             lines = self._get_lines()
             for line in lines:
                 writer.write(line)
 
-    @logger.catch
     def _process_block(self, block: list[str]) -> RaschetList:
         raschet_list = RaschetList(self.one_column_width - 1, self.few_lines_output)
         month, year, *_ = block[2].split('\t')[3].split(' ')
@@ -68,7 +66,6 @@ class SheetBuilder:
 
         return raschet_list
 
-    @logger.catch
     def _get_lines(self) -> list[str]:
         lines = []
         current_line = 0
@@ -103,7 +100,6 @@ class SheetBuilder:
 
         return lines
 
-    @logger.catch
     def _get_lines_from_sheet(self, sheet_strings: list[list[str]]) -> list[str]:
         lines = []
         sheet_lines: list[tuple[str, str, str]] = list(zip_longest(*sheet_strings, fillvalue=''))
