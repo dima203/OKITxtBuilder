@@ -13,7 +13,6 @@ class SheetBuilder:
         self.sheet_width = SETTINGS.SHEET_WIDTH
         self.sheet_height = SETTINGS.SHEET_HEIGHT
         self.one_column_width = SETTINGS.SHEET_WIDTH // 3
-        self.few_lines_output = SETTINGS.FEW_LINES_OUTPUT
 
     def read(self, input_file_path: str) -> None:
         self.raschet_lists.clear()
@@ -28,7 +27,7 @@ class SheetBuilder:
                 writer.write(line)
 
     def _process_block(self, block: list[str]) -> RaschetList:
-        raschet_list = RaschetList(self.one_column_width - 1, self.few_lines_output)
+        raschet_list = RaschetList(self.one_column_width - 1)
         month, year, *_ = block[2].split('\t')[3].split(' ')
         raschet_list.set_month(month, int(year))
         name, tabel_number = block[4].split(' таб. № ')
@@ -104,7 +103,7 @@ class SheetBuilder:
         lines = []
         sheet_lines: list[tuple[str, str, str]] = list(zip_longest(*sheet_strings, fillvalue=''))
         for line in sheet_lines:
-            lines.append(f'{line[0].strip():{self.one_column_width - 1}} {line[1].strip():{self.one_column_width - 1}} {line[2].strip():{self.one_column_width - 1}}\n')
+            lines.append(f'{line[0].strip():{self.one_column_width - 1}}|{line[1].strip():{self.one_column_width - 1}}|{line[2].strip():{self.one_column_width - 1}}\n')
 
         lines.append(SETTINGS.OKI_END_SHEET_LINE)
         return lines

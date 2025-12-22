@@ -70,7 +70,7 @@ def main_app(page: Page):
                     spacing=30,
                     controls=[
                         ElevatedButton(
-                            "Файл",
+                            "Открыть",
                             width=300,
                             height=70,
                             icon=Icons.UPLOAD_FILE,
@@ -98,5 +98,5 @@ def main_test() -> None:
 
 
 if __name__ == '__main__':
-    app(main_app)
-    # main_test()
+    # app(main_app)
+    main_test()

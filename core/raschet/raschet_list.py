@@ -3,12 +3,12 @@ import textwrap
 from datetime import datetime
 
 from log import logger
+from core.settings import SETTINGS
 
 
 class RaschetList:
-    def __init__(self, max_width: int, few_lines_output: bool) -> None:
+    def __init__(self, max_width: int) -> None:
         self.max_width = max_width
-        self.few_lines_output = few_lines_output
         self.table = PrettyTable(max_table_width=max_width)
         self.table.field_names = ['Наименование платежа', 'Месяц', 'Начислено', 'Удержано', 'Прим', 'Дн', 'Час']
         self.table.set_style(TableStyle.DEFAULT)
@@ -26,13 +26,10 @@ class RaschetList:
         self.table.align['Удержано'] = 'r'
         self.table.align['Месяц'] = 'r'
         self.table.min_width['Месяц'] = 5
-        self.table.max_width['Месяц'] = 5
         self.table.align['Дн'] = 'l'
         self.table.min_width['Дн'] = 2
-        self.table.max_width['Дн'] = 2
         self.table.align['Час'] = 'l'
         self.table.min_width['Час'] = 3
-        self.table.max_width['Час'] = 6
 
         self.name = ''
         self.tabel_number = 0
@@ -76,24 +73,34 @@ class RaschetList:
         return len(str(self).split('\n')) + 1
 
     def get_width(self) -> int:
-        return max(
+        calculated_max = max(
             len(self.table.get_string().split('\n')[0]),
             len(f'{self.name} таб. № {self.tabel_number}') + 2,
             len(f'Подразделение {self.otdel}') + 2,
         )
+        return calculated_max if calculated_max <= self.max_width else self.max_width
 
     def __str__(self) -> str:
         min_width = self.get_width()
         self.table.min_table_width = min_width
-        return (f'''{self.table.top_left_junction_char}{'СП ОАО Брестгазоаппарат':{self.table.horizontal_char}^{self.get_width()-2}}{self.table.top_right_junction_char}
-{self.table.vertical_char}{f'Расчетный листок за {self.month} {self.year}г.': <{self.get_width()-2}}{self.table.vertical_char}
-{self.table.vertical_char}{f'{self.name} таб. № {self.tabel_number}': <{self.get_width()-2}}{self.table.vertical_char}
-{self.table.vertical_char}{'': <{self.get_width()-2}}{self.table.vertical_char}
-{self.table.vertical_char}{f'Подразделение {self.otdel}': <{self.get_width()-2}}{self.table.vertical_char}
-{self.table.vertical_char}{f'Оклад/Тариф {self._number_formatter(str(self.salary))} Ставка {self.rate}': <{self.get_width()-2}}{self.table.vertical_char}
-{self.table.vertical_char}{'На начало периода':<{(self.get_width() - 3) // 2}}{self._number_formatter(str(self.start_period)):>{(self.get_width() - 3) // 2 if (self.get_width() - 3) % 2 == 0 else (self.get_width() - 3) // 2 + 1}} {self.table.vertical_char}
-''' +
-            self.table.get_string().replace(self.table.top_left_junction_char, self.table.left_junction_char).replace(self.table.top_right_junction_char, self.table.right_junction_char)
+        self.table.title = f'''
+СП ОАО Брестгазоаппарат
+Расчетный листок за {self.month} {self.year}г.
+{self.name} таб. № {self.tabel_number}
+
+Подразделение {self.otdel}
+Оклад/Тариф {self._number_formatter(str(self.salary))} Ставка {self.rate}
+'''
+
+#         return (f'''{self.table.top_left_junction_char}{'СП ОАО Брестгазоаппарат':{self.table.horizontal_char}^{self.get_width()-2}}{self.table.top_right_junction_char}
+# {self.table.vertical_char}{f'Расчетный листок за {self.month} {self.year}г.': <{self.get_width()-2}}{self.table.vertical_char}
+# {self._title_length_formatter(f'{self.name} таб. № {self.tabel_number}')}
+# {self.table.vertical_char}{'': <{self.get_width()-2}}{self.table.vertical_char}
+# {self._title_length_formatter(f'Подразделение {self.otdel}')}
+# {self.table.vertical_char}{f'Оклад/Тариф {self._number_formatter(str(self.salary))} Ставка {self.rate}': <{self.get_width()-2}}{self.table.vertical_char}
+# {self.table.vertical_char}{'На начало периода':<{(self.get_width() - 3) // 2}}{self._number_formatter(str(self.start_period)):>{(self.get_width() - 3) // 2 if (self.get_width() - 3) % 2 == 0 else (self.get_width() - 3) // 2 + 1}} {self.table.vertical_char}
+# ''' +
+        return  (self.table.get_string().replace(self.table.top_left_junction_char, self.table.left_junction_char).replace(self.table.top_right_junction_char, self.table.right_junction_char)
         ).replace(self.table.horizontal_char*2, self.table.horizontal_char + ' ')
 
     @logger.catch
@@ -111,6 +118,7 @@ class RaschetList:
         ]
 
     def _name_formatter(self, value: str) -> str:
+        value = self._length_formatter(value, self.max_width // 3 - 4)
         code, *text = value.strip().split(' ')
         text = ' '.join(text)
         if code[0].isnumeric():
@@ -122,12 +130,23 @@ class RaschetList:
 
         return text
 
-    def _length_formatter(self, value: str, max_length) -> str:
+    def _title_length_formatter(self, title_string: str) -> str:
+        title_string = self._length_formatter(title_string, self.max_width-2)
+        if len(title_string.split('\n')) > 1:
+            formatted_string = []
+            for string in title_string.split('\n'):
+                formatted_string.append(f'{self.table.vertical_char}{string: <{self.max_width - 2}}{self.table.vertical_char}')
+            formatted_string = '\n'.join(formatted_string)
+        else:
+            formatted_string = f'{self.table.vertical_char}{title_string: <{self.get_width() - 2}}{self.table.vertical_char}'
+        return formatted_string
+
+    def _length_formatter(self, value: str, max_length: int) -> str:
         return textwrap.fill(
             value,
             max_length,
             placeholder='',
-            max_lines=None if self.few_lines_output else 1,
+            max_lines=None if SETTINGS.FEW_LINES_OUTPUT else 1,
         )
 
     def _date_formatter(self, value: str) -> str:

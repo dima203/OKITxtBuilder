@@ -16,7 +16,6 @@ class Settings:
     OKI_END_SHEET_LINE: str = ''
 
 
-@logger.catch
 def load_settings() -> Settings:
     if getattr(sys, 'frozen', False):
         bundle_dir = os.path.dirname(sys.executable)
@@ -24,19 +23,23 @@ def load_settings() -> Settings:
         bundle_dir = os.getcwd()
 
     config = configparser.ConfigParser()
-    config.read(f"{bundle_dir}/settings.ini")
+    config.read(fr"{bundle_dir}\settings.ini")
 
-    settings = Settings(
-        int(config['SHEET']['height']),
-        int(config['SHEET']['width']),
-        bool(config['SHEET']['few_lines_output']),
-        bool(config['SHEET']['optimize_sort']),
-    )
+    try:
+        settings = Settings(
+            config.getint('SHEET', 'height'),
+            config.getint('SHEET', 'width'),
+            config.getboolean('SHEET', 'few_lines_output'),
+            config.getboolean('SHEET', 'optimize_sort'),
+        )
+    except KeyError:
+        logger.warning(fr'Settings file: {bundle_dir}\settings.ini not found. Using default settings.')
+        settings = Settings()
 
-    with open(f"{bundle_dir}/OKI/OK{settings.SHEET_HEIGHT}_{settings.SHEET_WIDTH}", 'r') as f:
+    with open(fr"{bundle_dir}/OKI/OK{settings.SHEET_HEIGHT}_{settings.SHEET_WIDTH}", 'r') as f:
         settings.OKI_PARAMETER_LINE = f.readline()
 
-    with open(f"{bundle_dir}/OKI/OK_END_SHEET", 'r') as f:
+    with open(fr"{bundle_dir}/OKI/OK_END_SHEET", 'r') as f:
         settings.OKI_END_SHEET_LINE = f.readline()
 
     return settings
