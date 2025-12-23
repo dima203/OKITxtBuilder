@@ -28,38 +28,38 @@ class SheetBuilder:
 
     def _process_block(self, block: list[str]) -> RaschetList:
         raschet_list = RaschetList(self.one_column_width - 1)
-        month, year, *_ = block[2].split('\t')[3].split(' ')
+        month, year, *_ = block[2].split("\t")[3].split(" ")
         raschet_list.set_month(month, int(year))
-        name, tabel_number = block[4].split(' таб. № ')
+        name, tabel_number = block[4].split(" таб. № ")
         raschet_list.set_name(name)
         raschet_list.set_tabel_number(int(tabel_number))
-        raschet_list.set_otdel(block[6].split('\t')[2])
+        raschet_list.set_otdel(block[6].split("\t")[2])
         try:
-            raschet_list.set_salary(int(block[8].split('\t')[2]))
-            raschet_list.set_rate(float(block[8].split('\t')[9].strip()))
+            raschet_list.set_salary(int(block[8].split("\t")[2]))
+            raschet_list.set_rate(float(block[8].split("\t")[9].strip()))
         except ValueError:
             raschet_list.set_salary(0)
             raschet_list.set_rate(0)
 
-        start_period = ''
+        start_period = ""
         for line in block[9:]:
-            if line.startswith('На начало периода'):
-                start_period = line.split('\t')[8].replace(',', '.')
-                if start_period == '':
-                    start_period = line.split('\t')[9].replace(',', '.')
+            if line.startswith("На начало периода"):
+                start_period = line.split("\t")[8].replace(",", ".")
+                if start_period == "":
+                    start_period = line.split("\t")[9].replace(",", ".")
 
         raschet_list.set_start_period(float(start_period))
 
         start_index = 0
         for i, line in enumerate(block[9:]):
-            if line.startswith('Начисление'):
+            if line.startswith("Начисление"):
                 start_index = i + 3 + 9
 
         for line in block[start_index:]:
-            if line == '':
+            if line == "":
                 continue
 
-            line = line.split('\t')
+            line = line.split("\t")
 
             raschet_list.add_table_row(line[0:1] + line[4:10])
 
@@ -91,8 +91,8 @@ class SheetBuilder:
 
             current_line += raschet_list.get_height()
 
-            sheet_strings[current_col].extend(str(raschet_list).split('\n'))
-            sheet_strings[current_col].append('\n')
+            sheet_strings[current_col].extend(str(raschet_list).split("\n"))
+            sheet_strings[current_col].append("\n")
 
         lines.extend(self._get_lines_from_sheet(sheet_strings))
         lines.append(SETTINGS.OKI_END_SHEET_LINE)
@@ -101,9 +101,13 @@ class SheetBuilder:
 
     def _get_lines_from_sheet(self, sheet_strings: list[list[str]]) -> list[str]:
         lines = []
-        sheet_lines: list[tuple[str, str, str]] = list(zip_longest(*sheet_strings, fillvalue=''))
+        sheet_lines: list[tuple[str, str, str]] = list(
+            zip_longest(*sheet_strings, fillvalue="")
+        )
         for line in sheet_lines:
-            lines.append(f'{line[0].strip():{self.one_column_width - 1}}|{line[1].strip():{self.one_column_width - 1}}|{line[2].strip():{self.one_column_width - 1}}\n')
+            lines.append(
+                f"{line[0].strip():{self.one_column_width - 1}}|{line[1].strip():{self.one_column_width - 1}}|{line[2].strip():{self.one_column_width - 1}}\n"
+            )
 
         lines.append(SETTINGS.OKI_END_SHEET_LINE)
         return lines

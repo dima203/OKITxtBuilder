@@ -13,7 +13,7 @@ class FileReader:
         block = []
 
         for line in self.__file:
-            if line.strip() == 'СП ОАО Брестгазоаппарат':
+            if line.strip() == "СП ОАО Брестгазоаппарат":
                 if is_block_start:
                     yield block
                     block.clear()
@@ -21,13 +21,13 @@ class FileReader:
                 is_block_start = True
 
             if is_block_start:
-                block.append(line.lstrip().replace(' ', ''))
+                block.append(line.lstrip().replace(" ", ""))
         else:
             yield block
 
     @logger.catch
     def __enter__(self) -> Self:
-        self.__file = open(self.file_path, 'r')
+        self.__file = open(self.file_path, "r")
         return self
 
     @logger.catch

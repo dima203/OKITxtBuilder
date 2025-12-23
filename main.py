@@ -1,6 +1,21 @@
 import os
 
-from flet import Page, app, FilePicker, FilePickerResultEvent, ElevatedButton, Row, Icons, Text, Column, MainAxisAlignment, TextAlign, Theme, Colors, AlertDialog, alignment
+from flet import (
+    Page,
+    FilePicker,
+    FilePickerResultEvent,
+    ElevatedButton,
+    Row,
+    Icons,
+    Text,
+    Column,
+    MainAxisAlignment,
+    TextAlign,
+    Theme,
+    Colors,
+    AlertDialog,
+    alignment,
+)
 
 from log import logger
 from core import SheetBuilder
@@ -37,17 +52,19 @@ def main_app(page: Page):
             sheet_builder.read(e.files[0].path)
             selected_files.value = e.files[0].name
             selected_files.update()
-        except Exception as exception:
+        except Exception:
             error_dialog.content = Text("Ошибка чтения файла!", color=Colors.ERROR)
             page.open(error_dialog)
-            logger.warning(f'File {e.files[0].path} has wrong formatting.')
+            logger.warning(f"File {e.files[0].path} has wrong formatting.")
 
     def save_file_result(e: FilePickerResultEvent):
         if e.path is None:
             return
 
         if selected_files.value is None:
-            error_dialog.content = Text("Сначала выберите файл для обработки!", color=Colors.ERROR)
+            error_dialog.content = Text(
+                "Сначала выберите файл для обработки!", color=Colors.ERROR
+            )
             page.open(error_dialog)
         else:
             sheet_builder.write(e.path)
@@ -74,7 +91,9 @@ def main_app(page: Page):
                             width=300,
                             height=70,
                             icon=Icons.UPLOAD_FILE,
-                            on_click=lambda _: pick_file_dialog.pick_files(allow_multiple=False),
+                            on_click=lambda _: pick_file_dialog.pick_files(
+                                allow_multiple=False
+                            ),
                         ),
                         selected_files,
                         ElevatedButton(
@@ -84,19 +103,19 @@ def main_app(page: Page):
                             icon=Icons.SAVE,
                             on_click=lambda _: save_file_dialog.save_file(),
                         ),
-                    ]
+                    ],
                 )
-            ]
+            ],
         )
     )
 
 
 def main_test() -> None:
     sheet_builder = SheetBuilder()
-    sheet_builder.read(f'{os.path.dirname(__file__)}/Print_OKI/raschet_2.txt')
-    sheet_builder.write(f'{os.path.dirname(__file__)}/1.txt')
+    sheet_builder.read(f"{os.path.dirname(__file__)}/Print_OKI/raschet_2.txt")
+    sheet_builder.write(f"{os.path.dirname(__file__)}/1.txt")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # app(main_app)
     main_test()

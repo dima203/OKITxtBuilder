@@ -14,7 +14,7 @@ class FileWriter:
 
     @logger.catch
     def __enter__(self) -> Self:
-        self.__file = open(self.file_path, 'w', encoding='OEM')
+        self.__file = open(self.file_path, "w", encoding="OEM")
         return self
 
     @logger.catch
