@@ -2,6 +2,7 @@ from itertools import zip_longest
 
 from filework import FileReader, FileWriter
 from log import logger
+from tqdm import tqdm
 
 from .settings import SETTINGS
 from .raschet import RaschetList
@@ -16,9 +17,16 @@ class SheetBuilder:
 
     def read(self, input_file_path: str) -> None:
         self.raschet_lists.clear()
+
+        with open(input_file_path, "rb") as f:
+            num_lines = sum(1 for _ in f)
+
         with FileReader(input_file_path) as reader:
-            for block in reader.read_block():
-                self.raschet_lists.append(self._process_block(block))
+            with tqdm(total=num_lines) as progress:
+                for lines, block in reader.read_block():
+                    progress.set_description(f"Reading")
+                    self.raschet_lists.append(self._process_block(block))
+                    progress.update(lines)
 
     def write(self, output_file_path: str) -> None:
         with FileWriter(output_file_path) as writer:
@@ -27,7 +35,7 @@ class SheetBuilder:
                 writer.write(line)
 
     def _process_block(self, block: list[str]) -> RaschetList:
-        raschet_list = RaschetList(self.one_column_width - 1)
+        raschet_list = RaschetList(self.one_column_width)
         month, year, *_ = block[2].split("\t")[3].split(" ")
         raschet_list.set_month(month, int(year))
         name, tabel_number = block[4].split(" таб. № ")
@@ -74,25 +82,32 @@ class SheetBuilder:
         lines.append(SETTINGS.OKI_PARAMETER_LINE)
 
         if SETTINGS.OPTIMIZE_SORT:
-            output_lists = self._optimise_sort()
+            output_lists = []
+            for i in range(0, len(self.raschet_lists[:1000]), 100):
+                output_lists.extend(self._optimise_sort(self.raschet_lists[i:i+100]))
         else:
-            output_lists = self.raschet_lists.copy()
+            output_lists = self.raschet_lists[:1000].copy()
 
-        for raschet_list in output_lists:
-            if current_line + raschet_list.get_height() > self.sheet_height:
-                current_line = 0
-                current_col += 1
-                if current_col >= 3:
-                    current_col = 0
-                    lines.extend(self._get_lines_from_sheet(sheet_strings))
-                    sheet_strings[0].clear()
-                    sheet_strings[1].clear()
-                    sheet_strings[2].clear()
+        pages = 1
+        with tqdm(total=len(output_lists)) as progress:
+            for raschet_list in output_lists:
+                progress.set_description(f"Processing {pages} page")
+                if current_line + raschet_list.get_height() > self.sheet_height:
+                    current_line = 0
+                    current_col += 1
+                    if current_col >= 3:
+                        pages += 1
+                        current_col = 0
+                        lines.extend(self._get_lines_from_sheet(sheet_strings))
+                        sheet_strings[0].clear()
+                        sheet_strings[1].clear()
+                        sheet_strings[2].clear()
 
-            current_line += raschet_list.get_height()
+                current_line += raschet_list.get_height()
 
-            sheet_strings[current_col].extend(str(raschet_list).split("\n"))
-            sheet_strings[current_col].append("\n")
+                sheet_strings[current_col].extend(str(raschet_list).split("\n"))
+                sheet_strings[current_col].append("\n")
+                progress.update()
 
         lines.extend(self._get_lines_from_sheet(sheet_strings))
         lines.append(SETTINGS.OKI_END_SHEET_LINE)
@@ -106,21 +121,24 @@ class SheetBuilder:
         )
         for line in sheet_lines:
             lines.append(
-                f"{line[0].strip():{self.one_column_width - 1}}|{line[1].strip():{self.one_column_width - 1}}|{line[2].strip():{self.one_column_width - 1}}\n"
+                f"{line[0].strip():{self.one_column_width}}{line[1].strip():{self.one_column_width}}{line[2].strip():{self.one_column_width}}\n"
             )
 
         lines.append(SETTINGS.OKI_END_SHEET_LINE)
         return lines
 
     @logger.catch
-    def _optimise_sort(self) -> list[RaschetList]:
-        list_copy = self.raschet_lists.copy()
+    def _optimise_sort(self, lists: list[RaschetList]) -> list[RaschetList]:
+        list_copy = lists.copy()
         result_lists = []
-        while len(list_copy) > 0:
-            result = self.__max_sum_less_or_equal(list_copy, self.sheet_height)
-            result_lists.extend(result)
-            for el in result:
-                list_copy.remove(el)
+        with tqdm(total=len(list_copy)) as progress:
+            while len(list_copy) > 0:
+                progress.set_description("Sorting lists")
+                result = self.__max_sum_less_or_equal(list_copy, self.sheet_height)
+                result_lists.extend(result)
+                progress.update(len(result))
+                for el in result:
+                    list_copy.remove(el)
         return result_lists
 
     @staticmethod

@@ -11,19 +11,22 @@ class FileReader:
     def read_block(self) -> Generator:
         is_block_start = False
         block = []
+        lines = 0
 
         for line in self.__file:
+            lines += 1
             if line.strip() == "СП ОАО Брестгазоаппарат":
                 if is_block_start:
-                    yield block
+                    yield lines, block
                     block.clear()
+                    lines = 1
 
                 is_block_start = True
 
             if is_block_start:
                 block.append(line.lstrip().replace(" ", ""))
         else:
-            yield block
+            yield lines, block
 
     @logger.catch
     def __enter__(self) -> Self:

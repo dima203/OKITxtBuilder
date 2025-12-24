@@ -10,7 +10,7 @@ from core.settings import SETTINGS
 class RaschetList:
     def __init__(self, max_width: int) -> None:
         self.max_width = max_width
-        self.table = Table(headers=[
+        self.table = Table(keys=[
             "Наименование платежа",
             "Месяц",
             "Начислено",
@@ -19,24 +19,30 @@ class RaschetList:
             "Дн",
             "Час",
         ])
+        self.table.wrap = SETTINGS.FEW_LINES_OUTPUT
+        self.table.max_table_width = self.max_width
         self.table.vertical_character = ":"
-        # self.table.padding_width = 0
-        # self.table.left_padding_width = 0
-        # self.table.right_padding_width = 0
+
         self.table.align["Наименование платежа"] = "<"
-        self.table.max_width["Наименование платежа"] = self.max_width // 3
-        # self.table.none_format["Прим."] = ""
-        # self.table.none_format["Начислено"] = ""
-        # self.table.none_format["Удержано"] = ""
         self.table.align["Прим"] = "<"
         self.table.align["Начислено"] = ">"
         self.table.align["Удержано"] = ">"
         self.table.align["Месяц"] = ">"
-        self.table.max_width["Месяц"] = 5
         self.table.align["Дн"] = "<"
-        self.table.max_width["Дн"] = 2
         self.table.align["Час"] = "<"
-        self.table.max_width["Час"] = 3
+
+        self.table.min_width["Начислено"] = 9
+
+        self.table.min_width["Удержано"] = 8
+
+        self.table.max_width["Месяц"] = 5
+        self.table.min_width["Месяц"] = 5
+
+        self.table.max_width["Дн"] = 2
+        self.table.min_width["Дн"] = 2
+
+        self.table.max_width["Час"] = 5
+        self.table.min_width["Час"] = 3
 
         self.name = ""
         self.tabel_number = 0
@@ -107,7 +113,7 @@ class RaschetList:
 
     @logger.catch
     def _process_row(self, row: list) -> list:
-        assert len(row) == len(self.table.headers)
+        assert len(row) == len(self.table.keys)
 
         return [
             self._name_formatter(row[0]),
@@ -120,7 +126,6 @@ class RaschetList:
         ]
 
     def _name_formatter(self, value: str) -> str:
-        value = self._length_formatter(value, self.max_width // 3 - 4)
         code, *text = value.strip().split(" ")
         text = " ".join(text)
         if code[0].isnumeric():

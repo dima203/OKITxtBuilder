@@ -112,7 +112,7 @@ def main_app(page: Page):
 
 def main_test() -> None:
     sheet_builder = SheetBuilder()
-    sheet_builder.read(f"{os.path.dirname(__file__)}/Print_OKI/raschet_2.txt")
+    sheet_builder.read(f"{os.path.dirname(__file__)}/Print_OKI/payslips_random.txt")
     sheet_builder.write(f"{os.path.dirname(__file__)}/1.txt")
 
 
