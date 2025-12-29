@@ -17,6 +17,7 @@ from flet import (
     alignment,
 )
 
+from core.settings import SETTINGS
 from log import logger
 from core import SheetBuilder
 

@@ -1,11 +1,17 @@
+from tqdm import tqdm
+
+import os
+import timeit
+from random import shuffle
+from multiprocessing import Pool
 from itertools import zip_longest
 
 from filework import FileReader, FileWriter
 from log import logger
-from tqdm import tqdm
 
 from .settings import SETTINGS
 from .raschet import RaschetList
+from .sorting import Packager
 
 
 class SheetBuilder:
@@ -73,6 +79,10 @@ class SheetBuilder:
 
         return raschet_list
 
+    @staticmethod
+    def _f(packager):
+        return packager.first_fit_decreasing()
+
     def _get_lines(self) -> list[str]:
         lines = []
         current_line = 0
@@ -83,10 +93,54 @@ class SheetBuilder:
 
         if SETTINGS.OPTIMIZE_SORT:
             output_lists = []
-            for i in range(0, len(self.raschet_lists[:1000]), 100):
-                output_lists.extend(self._optimise_sort(self.raschet_lists[i:i+100]))
+            # def __f():
+            #     with Pool() as p:
+            #         result = p.map(self._optimise_sort, [self.raschet_lists[i:i+100] for i in range(0, len(self.raschet_lists), 100)])
+            #     for i in result:
+            #         output_lists.extend(i)
+
+            def __f():
+                processes: int = os.cpu_count()
+
+                with Pool() as p:
+                    result = []
+                    not_optimized = self.raschet_lists.copy()
+                    for _ in range(1):
+                        for bin in result:
+                            if bin["sum"] != self.sheet_height:
+                                not_optimized.extend(bin["items"])
+
+                        result = [bin for bin in result if bin["sum"] == self.sheet_height]
+                        print(len(result), len(not_optimized))
+                        packagers = [
+                            Packager(not_optimized[i:i+100], self.sheet_height)
+                            for i in range(0, len(not_optimized), 100)
+                        ]
+                        for bins in p.map(self._f, packagers):
+                            result.extend(bins)
+
+                        not_optimized = []
+
+                    for bin in result:
+                        if bin["sum"] != self.sheet_height:
+                            not_optimized.extend(bin["items"])
+                    result = [bin for bin in result if bin["sum"] == self.sheet_height]
+                    print(len(result), len(not_optimized))
+                    for bins in result:
+                        output_lists.extend(bins["items"])
+                    result = p.map(self._optimise_sort, [not_optimized[i:i+100] for i in range(0, len(not_optimized), 100)])
+                    for i in result:
+                        output_lists.extend(i)
+
+                # print(len(result) // 3)
+                # exit(0)
+                # for bins in result:
+                #     output_lists.extend(bins["items"])
+
+            execution_time = timeit.timeit(lambda: __f(), number=1)
+            logger.info(f"Время выполнения: {execution_time}")
         else:
-            output_lists = self.raschet_lists[:1000].copy()
+            output_lists = self.raschet_lists.copy()
 
         pages = 1
         with tqdm(total=len(output_lists)) as progress:
@@ -152,7 +206,9 @@ class SheetBuilder:
 
         # Получаем высоты всех объектов
         heights = [obj.get_height() for obj in objects]
-        n = len(objects)
+
+        if sum(heights) <= target_height:
+            return objects
 
         # Создаем таблицу динамического программирования
         # dp[s] - максимальная суммарная высота для ограничения s
@@ -160,7 +216,7 @@ class SheetBuilder:
         # subsets[s] - список объектов, дающих максимальную сумму для ограничения s
         subsets = [[] for _ in range(target_height + 1)]
 
-        for i in range(n):
+        for i in range(len(objects)):
             height = heights[i]
             for s in range(target_height, height - 1, -1):
                 # Проверяем, улучшает ли добавление текущего объекта результат
