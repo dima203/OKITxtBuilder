@@ -3,7 +3,7 @@ import os
 from flet import (
     Page,
     FilePicker,
-    FilePickerResultEvent,
+    FilePickerUploadEvent,
     ElevatedButton,
     Row,
     Icons,
@@ -45,7 +45,7 @@ def main_app(page: Page):
         bgcolor=Colors.PRIMARY_CONTAINER,
     )
 
-    def pick_file_result(e: FilePickerResultEvent):
+    def pick_file_result(e):
         if e.files is None:
             return
 
@@ -58,7 +58,7 @@ def main_app(page: Page):
             page.open(error_dialog)
             logger.warning(f"File {e.files[0].path} has wrong formatting.")
 
-    def save_file_result(e: FilePickerResultEvent):
+    def save_file_result(e):
         if e.path is None:
             return
 
@@ -114,6 +114,7 @@ def main_app(page: Page):
 def main_test() -> None:
     sheet_builder = SheetBuilder()
     sheet_builder.read(f"{os.path.dirname(__file__)}/Print_OKI/payslips_random.txt")
+    # sheet_builder.read(f"{os.path.dirname(__file__)}/Print_OKI/raschet_2.txt")
     sheet_builder.write(f"{os.path.dirname(__file__)}/1.txt")
 
 

@@ -1,4 +1,3 @@
-from prettytable import PrettyTable, TableStyle
 import textwrap
 from datetime import datetime
 from simple_table_dima203 import Table
@@ -21,7 +20,7 @@ class RaschetList:
         ])
         self.table.wrap = SETTINGS.FEW_LINES_OUTPUT
         self.table.max_table_width = self.max_width
-        self.table.vertical_character = ":"
+        self.table.style.vertical_character = ":"
 
         self.table.align["Наименование платежа"] = "<"
         self.table.align["Прим"] = "<"
@@ -55,10 +54,10 @@ class RaschetList:
 
     def add_table_row(self, row: list) -> None:
         row = self._process_row(row)
-        # if row[0].startswith("ИТОГО"):
-        #     self.table.add_divider()
-        # else:
-        self.table.add_row(row)
+        if row[0].startswith("ИТОГО"):
+            self.table.add_delimiter()
+        else:
+            self.table.add_row(row)
 
     def set_name(self, name: str) -> None:
         self.name = name
@@ -83,7 +82,7 @@ class RaschetList:
         self.start_period = start_period
 
     def get_height(self) -> int:
-        return len(str(self).split("\n")) + 1
+        return len(str(self).split("\n"))
 
     def get_width(self) -> int:
         calculated_max = max(
@@ -98,18 +97,19 @@ class RaschetList:
         self.table.min_table_width = min_width
 
         return (
-            f"""{self.table.top_left_junction_character}{"СП ОАО Брестгазоаппарат":{self.table.horizontal_character}^{self.get_width() - 2}}{self.table.top_right_junction_character}
-{self.table.vertical_character}{f"Расчетный листок за {self.month} {self.year}г.": <{self.get_width() - 2}}{self.table.vertical_character}
+            f"""{self.table.style.top_left_junction_character}{"СП ОАО Брестгазоаппарат":{self.table.style.horizontal_character}^{self.get_width() - 2}}{self.table.style.top_right_junction_character}
+{self.table.style.vertical_character}{f"Расчетный листок за {self.month} {self.year}г.": <{self.get_width() - 2}}{self.table.style.vertical_character}
 {self._title_length_formatter(f"{self.name} таб. № {self.tabel_number}")}
-{self.table.vertical_character}{"": <{self.get_width() - 2}}{self.table.vertical_character}
+{self.table.style.vertical_character}{"": <{self.get_width() - 2}}{self.table.style.vertical_character}
 {self._title_length_formatter(f"Подразделение {self.otdel}")}
-{self.table.vertical_character}{f"Оклад/Тариф {self._number_formatter(str(self.salary))} Ставка {self.rate}": <{self.get_width() - 2}}{self.table.vertical_character}
-{self.table.vertical_character}{"На начало периода":<{(self.get_width() - 3) // 2}}{self._number_formatter(str(self.start_period)):>{(self.get_width() - 3) // 2 if (self.get_width() - 3) % 2 == 0 else (self.get_width() - 3) // 2 + 1}} {self.table.vertical_character}
+{self.table.style.vertical_character}{f"Оклад/Тариф {self._number_formatter(str(self.salary))} Ставка {self.rate}": <{self.get_width() - 2}}{self.table.style.vertical_character}
+{self.table.style.vertical_character}{"На начало периода":<{(self.get_width() - 3) // 2}}{self._number_formatter(str(self.start_period)):>{(self.get_width() - 3) // 2 if (self.get_width() - 3) % 2 == 0 else (self.get_width() - 3) // 2 + 1}} {self.table.style.vertical_character}
 """
             + str(self.table)
-            .replace(self.table.top_left_junction_character, self.table.left_junction_character)
-            .replace(self.table.top_right_junction_character, self.table.right_junction_character)
-        ).replace(self.table.horizontal_character * 2, self.table.horizontal_character + " ")
+            .replace(self.table.style.top_left_junction_character, self.table.style.left_junction_character)
+            .replace(self.table.style.top_right_junction_character, self.table.style.right_junction_character)
+            + "\n"
+        ).replace(self.table.style.horizontal_character * 2, self.table.style.horizontal_character + " ")
 
     @logger.catch
     def _process_row(self, row: list) -> list:
@@ -125,7 +125,8 @@ class RaschetList:
             row[3],
         ]
 
-    def _name_formatter(self, value: str) -> str:
+    @staticmethod
+    def _name_formatter(value: str) -> str:
         code, *text = value.strip().split(" ")
         text = " ".join(text)
         if code[0].isnumeric():
@@ -143,14 +144,15 @@ class RaschetList:
             formatted_string = []
             for string in title_string.split("\n"):
                 formatted_string.append(
-                    f"{self.table.vertical_character}{string: <{self.max_width - 2}}{self.table.vertical_character}"
+                    f"{self.table.style.vertical_character}{string: <{self.max_width - 2}}{self.table.style.vertical_character}"
                 )
             formatted_string = "\n".join(formatted_string)
         else:
-            formatted_string = f"{self.table.vertical_character}{title_string: <{self.get_width() - 2}}{self.table.vertical_character}"
+            formatted_string = f"{self.table.style.vertical_character}{title_string: <{self.get_width() - 2}}{self.table.style.vertical_character}"
         return formatted_string
 
-    def _length_formatter(self, value: str, max_length: int) -> str:
+    @staticmethod
+    def _length_formatter(value: str, max_length: int) -> str:
         return textwrap.fill(
             value,
             max_length,
@@ -158,7 +160,8 @@ class RaschetList:
             max_lines=None if SETTINGS.FEW_LINES_OUTPUT else 1,
         )
 
-    def _date_formatter(self, value: str) -> str:
+    @staticmethod
+    def _date_formatter(value: str) -> str:
         try:
             return f"{datetime.strptime(value, '%d.%m.%Y').strftime('%m/%y')}"
         except ValueError:
@@ -167,7 +170,8 @@ class RaschetList:
             except ValueError:
                 return ""
 
-    def _number_formatter(self, value: str) -> str:
+    @staticmethod
+    def _number_formatter(value: str) -> str:
         value = value.replace(",", ".")
         try:
             return f"{float(value):_.2f}".replace("_", " ")

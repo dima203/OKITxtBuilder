@@ -1,9 +1,6 @@
 from tqdm import tqdm
 
-import os
 import timeit
-from random import shuffle
-from multiprocessing import Pool
 from itertools import zip_longest
 
 from filework import FileReader, FileWriter
@@ -11,7 +8,7 @@ from log import logger
 
 from .settings import SETTINGS
 from .raschet import RaschetList
-from .sorting import Packager
+from .sorting import Packager, Sorter, Column
 
 
 class SheetBuilder:
@@ -30,7 +27,7 @@ class SheetBuilder:
         with FileReader(input_file_path) as reader:
             with tqdm(total=num_lines) as progress:
                 for lines, block in reader.read_block():
-                    progress.set_description(f"Reading")
+                    progress.set_description(f"Чтение файла")
                     self.raschet_lists.append(self._process_block(block))
                     progress.update(lines)
 
@@ -79,94 +76,108 @@ class SheetBuilder:
 
         return raschet_list
 
-    @staticmethod
-    def _f(packager):
-        return packager.first_fit_decreasing()
-
     def _get_lines(self) -> list[str]:
+        output_lists = []
+
+        def __f():
+            nonlocal output_lists
+            if SETTINGS.OPTIMIZE_SORT:
+                not_optimized = self.raschet_lists.copy()
+
+                # Предварительно упаковываем листы в колонки (работает быстрее сортировки)
+                package = Packager(not_optimized, self.sheet_height)
+                result = package.run()
+
+                not_optimized = []
+                for column in result:
+                    if column.height != self.sheet_height:
+                        not_optimized.extend(column.items)
+                    else:
+                        output_lists.append(column)
+                logger.info(f"Предварительная оптимизация: {len(output_lists)} оптимизировано и {len(not_optimized)} не оптимизировано")
+                length = 0
+                for column in output_lists:
+                    length += len(column.items)
+                logger.info(f"Всего: {length + len(not_optimized)} записей")
+
+                # Сортируем листы в колонки
+                sorter = Sorter(not_optimized, self.sheet_height)
+                result = sorter.run()
+
+                for column in result:
+                    output_lists.append(column)
+
+                not_optimized = []
+                optimized = []
+                for column in result:
+                    if column.height != self.sheet_height:
+                        not_optimized.extend(column.items)
+                    else:
+                        optimized.extend(column.items)
+
+                logger.info(
+                    f"Оптимизация: {len(optimized) + length} оптимизировано и {len(not_optimized)} не оптимизировано")
+
+            else:
+                output_lists = self._get_columns(self.raschet_lists)
+
+        execution_time = timeit.timeit(lambda: __f(), number=1)
+        logger.info(f"Время выполнения: {execution_time:.2f}")
+
+        length = 0
+        for column in output_lists:
+            length += len(column.items)
+        logger.info(f"Всего {length} записей")
+
         lines = []
-        current_line = 0
-        current_col = 0
         sheet_strings = [[], [], []]
 
-        lines.append(SETTINGS.OKI_PARAMETER_LINE)
+        lines.append(SETTINGS.OKI_PARAMETER_LINE)  # Добавляем в начало файла управляющую строку с параметрами
 
-        if SETTINGS.OPTIMIZE_SORT:
-            output_lists = []
-            # def __f():
-            #     with Pool() as p:
-            #         result = p.map(self._optimise_sort, [self.raschet_lists[i:i+100] for i in range(0, len(self.raschet_lists), 100)])
-            #     for i in result:
-            #         output_lists.extend(i)
-
-            def __f():
-                processes: int = os.cpu_count()
-
-                with Pool() as p:
-                    result = []
-                    not_optimized = self.raschet_lists.copy()
-                    for _ in range(1):
-                        for bin in result:
-                            if bin["sum"] != self.sheet_height:
-                                not_optimized.extend(bin["items"])
-
-                        result = [bin for bin in result if bin["sum"] == self.sheet_height]
-                        print(len(result), len(not_optimized))
-                        packagers = [
-                            Packager(not_optimized[i:i+100], self.sheet_height)
-                            for i in range(0, len(not_optimized), 100)
-                        ]
-                        for bins in p.map(self._f, packagers):
-                            result.extend(bins)
-
-                        not_optimized = []
-
-                    for bin in result:
-                        if bin["sum"] != self.sheet_height:
-                            not_optimized.extend(bin["items"])
-                    result = [bin for bin in result if bin["sum"] == self.sheet_height]
-                    print(len(result), len(not_optimized))
-                    for bins in result:
-                        output_lists.extend(bins["items"])
-                    result = p.map(self._optimise_sort, [not_optimized[i:i+100] for i in range(0, len(not_optimized), 100)])
-                    for i in result:
-                        output_lists.extend(i)
-
-                # print(len(result) // 3)
-                # exit(0)
-                # for bins in result:
-                #     output_lists.extend(bins["items"])
-
-            execution_time = timeit.timeit(lambda: __f(), number=1)
-            logger.info(f"Время выполнения: {execution_time}")
-        else:
-            output_lists = self.raschet_lists.copy()
-
-        pages = 1
         with tqdm(total=len(output_lists)) as progress:
-            for raschet_list in output_lists:
-                progress.set_description(f"Processing {pages} page")
-                if current_line + raschet_list.get_height() > self.sheet_height:
-                    current_line = 0
-                    current_col += 1
-                    if current_col >= 3:
-                        pages += 1
-                        current_col = 0
-                        lines.extend(self._get_lines_from_sheet(sheet_strings))
-                        sheet_strings[0].clear()
-                        sheet_strings[1].clear()
-                        sheet_strings[2].clear()
+            pages = 1
+            current_col = 0
+            for column in output_lists:
+                progress.set_description(f"Обработка {pages} листа")
 
-                current_line += raschet_list.get_height()
+                for item in column.items:
+                    sheet_strings[current_col].extend(str(item).split("\n"))
 
-                sheet_strings[current_col].extend(str(raschet_list).split("\n"))
-                sheet_strings[current_col].append("\n")
                 progress.update()
 
-        lines.extend(self._get_lines_from_sheet(sheet_strings))
-        lines.append(SETTINGS.OKI_END_SHEET_LINE)
+                current_col += 1
+                if current_col == 3:
+                    current_col = 0
+                    pages += 1
+                    lines.extend(self._get_lines_from_sheet(sheet_strings))
+                    sheet_strings = [[], [], []]
+
+            lines.extend(self._get_lines_from_sheet(sheet_strings))
+            lines.append(SETTINGS.OKI_END_SHEET_LINE)
 
         return lines
+
+    def _get_columns(self, items: list[RaschetList]) -> list[Column]:
+        result = []
+
+        with tqdm(total=len(items)) as progress:
+            current_column = Column([], 0)
+            column_number = 1
+            for raschet_list in items:
+                progress.set_description(f"Обработка {column_number} колонки")
+                progress.update()
+
+                if current_column.height + raschet_list.get_height() > self.sheet_height:
+                    result.append(current_column)
+                    current_column = Column([raschet_list], raschet_list.get_height())
+                    column_number += 1
+                    continue
+
+                current_column.add_item(raschet_list)
+
+            result.append(current_column)
+
+        return result
 
     def _get_lines_from_sheet(self, sheet_strings: list[list[str]]) -> list[str]:
         lines = []
@@ -194,46 +205,3 @@ class SheetBuilder:
                 for el in result:
                     list_copy.remove(el)
         return result_lists
-
-    @staticmethod
-    def __max_sum_less_or_equal(objects, target_height):
-        """
-        Находит подмножество объектов с максимальной суммарной высотой ≤ target_height.
-        Объекты должны иметь метод get_height(), возвращающий числовое значение.
-        """
-        if not objects:
-            return []
-
-        # Получаем высоты всех объектов
-        heights = [obj.get_height() for obj in objects]
-
-        if sum(heights) <= target_height:
-            return objects
-
-        # Создаем таблицу динамического программирования
-        # dp[s] - максимальная суммарная высота для ограничения s
-        dp = [0] * (target_height + 1)
-        # subsets[s] - список объектов, дающих максимальную сумму для ограничения s
-        subsets = [[] for _ in range(target_height + 1)]
-
-        for i in range(len(objects)):
-            height = heights[i]
-            for s in range(target_height, height - 1, -1):
-                # Проверяем, улучшает ли добавление текущего объекта результат
-                if dp[s] < dp[s - height] + height:
-                    dp[s] = dp[s - height] + height
-                    subsets[s] = subsets[s - height] + [objects[i]]
-
-        # Находим максимальную достижимую сумму
-        max_height = dp[target_height]
-
-        # Если максимальная сумма достигнута не при полном target_height,
-        # ищем лучшее решение среди всех возможных сумм
-        if max_height < target_height:
-            # Находим максимальное значение в dp
-            max_height = max(dp)
-            # Находим индекс, где достигнуто максимальное значение
-            best_index = dp.index(max_height)
-            return subsets[best_index]
-
-        return subsets[target_height]
