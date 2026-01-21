@@ -1,3 +1,4 @@
+tqdm
 simple-table-dima203~=0.0.6
 loguru~=0.7.3
 flet~=0.80.0

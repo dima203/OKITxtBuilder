@@ -35,11 +35,8 @@ class Packager:
             results = p.map(function, [self.items[i::cpu] for i in range(cpu)])
 
         result = []
-        for bins in results:
-            result.extend(bins)
-
-        for i in range(len(result)):
-            result[i] = Column(result[i]["items"], result[i]["sum"])
+        for columns in results:
+            result.extend(columns)
 
         return result
 
@@ -52,7 +49,7 @@ class Packager:
         sorted_objects = sorted(objects, key=lambda x: x.get_height(), reverse=True)
 
         # Создаем первую корзину
-        bins = []
+        columns: list[Column] = []
 
         with tqdm(total=len(sorted_objects)) as progress:
             for obj in sorted_objects:
@@ -61,25 +58,20 @@ class Packager:
 
                 # Ищем подходящую корзину
                 placed = False
-                for bin in bins:
-                    if bin['remaining'] >= obj_height:
-                        bin['items'].append(obj)
-                        bin['sum'] += obj_height
-                        bin['remaining'] -= obj_height
+                for column in columns:
+                    if column.remaining >= obj_height:
+                        column.add_item(obj)
                         placed = True
                         break
 
                 # Если не нашли подходящую корзину, создаем новую
                 if not placed:
-                    new_bin = {
-                        'items': [obj],
-                        'sum': obj_height,
-                        'remaining': self.height - obj_height
-                    }
-                    bins.append(new_bin)
+                    columns.append(
+                        Column([obj], obj_height, self.height)
+                    )
                 progress.update()
 
-        return bins
+        return columns
 
     def best_fit_decreasing(self, objects: list[RaschetList]):
         """
@@ -87,35 +79,30 @@ class Packager:
         Сортирует по убыванию и размещает объект в корзину с наименьшим остаточным местом.
         """
         sorted_objects = sorted(objects, key=lambda x: x.get_height(), reverse=True)
-        bins = []
+        columns = []
 
         for obj in sorted_objects:
             obj_height = obj.get_height()
 
             # Ищем корзину с минимальным остаточным местом, куда поместится объект
-            best_bin_idx = -1
+            best_column_idx = -1
             min_remaining = float('inf')
 
-            for i, bin in enumerate(bins):
-                if obj_height <= bin['remaining'] < min_remaining:
-                    min_remaining = bin['remaining']
-                    best_bin_idx = i
+            for i, column in enumerate(columns):
+                if obj_height <= column.remaining < min_remaining:
+                    min_remaining = column.remaining
+                    best_column_idx = i
 
             # Если нашли подходящую корзину
-            if best_bin_idx != -1:
-                bins[best_bin_idx]['items'].append(obj)
-                bins[best_bin_idx]['sum'] += obj_height
-                bins[best_bin_idx]['remaining'] -= obj_height
+            if best_column_idx != -1:
+                columns[best_column_idx].add_item(obj)
             else:
                 # Создаем новую корзину
-                new_bin = {
-                    'items': [obj],
-                    'sum': obj_height,
-                    'remaining': self.height - obj_height
-                }
-                bins.append(new_bin)
+                columns.append(
+                    Column([obj], obj_height, self.height)
+                )
 
-        return bins
+        return columns
 
     def worst_fit_decreasing(self, objects: list[RaschetList]):
         """
@@ -123,32 +110,27 @@ class Packager:
         Сортирует по убыванию и размещает объект в корзину с наибольшим остаточным местом.
         """
         sorted_objects = sorted(objects, key=lambda x: x.get_height(), reverse=True)
-        bins = []
+        columns = []
 
         for obj in sorted_objects:
             obj_height = obj.get_height()
 
             # Ищем корзину с максимальным остаточным местом, куда поместится объект
-            worst_bin_idx = -1
+            worst_column_idx = -1
             max_remaining = -1
 
-            for i, bin in enumerate(bins):
-                if bin['remaining'] >= obj_height and bin['remaining'] > max_remaining:
-                    max_remaining = bin['remaining']
-                    worst_bin_idx = i
+            for i, column in enumerate(columns):
+                if column.remaining >= obj_height and column.remaining > max_remaining:
+                    max_remaining = column.remaining
+                    worst_column_idx = i
 
             # Если нашли подходящую корзину
-            if worst_bin_idx != -1:
-                bins[worst_bin_idx]['items'].append(obj)
-                bins[worst_bin_idx]['sum'] += obj_height
-                bins[worst_bin_idx]['remaining'] -= obj_height
+            if worst_column_idx != -1:
+                columns[worst_column_idx].add_item(obj)
             else:
                 # Создаем новую корзину
-                new_bin = {
-                    'items': [obj],
-                    'sum': obj_height,
-                    'remaining': self.height - obj_height
-                }
-                bins.append(new_bin)
+                columns.append(
+                    Column([obj], obj_height, self.height)
+                )
 
-        return bins
+        return columns

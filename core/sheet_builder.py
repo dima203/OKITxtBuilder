@@ -191,17 +191,3 @@ class SheetBuilder:
 
         lines.append(SETTINGS.OKI_END_SHEET_LINE)
         return lines
-
-    @logger.catch
-    def _optimise_sort(self, lists: list[RaschetList]) -> list[RaschetList]:
-        list_copy = lists.copy()
-        result_lists = []
-        with tqdm(total=len(list_copy)) as progress:
-            while len(list_copy) > 0:
-                progress.set_description("Sorting lists")
-                result = self.__max_sum_less_or_equal(list_copy, self.sheet_height)
-                result_lists.extend(result)
-                progress.update(len(result))
-                for el in result:
-                    list_copy.remove(el)
-        return result_lists

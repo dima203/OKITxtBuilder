@@ -37,7 +37,8 @@ class Sorter:
                 progress.set_description("Sorting lists")
 
                 result = self.__max_sum_less_or_equal(list_copy, self.height)  # Находим очередной столбик
-                result_lists.append(result)
+                if len(result.items) != 0:
+                    result_lists.append(result)
 
                 progress.update(len(result.items))
 
@@ -54,13 +55,13 @@ class Sorter:
         Объекты должны иметь метод get_height(), возвращающий числовое значение.
         """
         if not objects:
-            return Column([], 0)
+            return Column([], 0, target_height)
 
         # Получаем высоты всех объектов
         heights = [obj.get_height() for obj in objects]
 
         if sum(heights) <= target_height:
-            return Column(objects.copy(), sum(heights))
+            return Column(objects.copy(), sum(heights), target_height)
 
         # Создаем таблицу динамического программирования
         # dp[s] - максимальная суммарная высота для ограничения s
@@ -88,4 +89,4 @@ class Sorter:
         else:
             result = subsets[target_height]
 
-        return Column(result, max_height)
+        return Column(result, max_height, target_height)
