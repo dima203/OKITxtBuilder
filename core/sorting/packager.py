@@ -79,7 +79,7 @@ class Packager:
         Сортирует по убыванию и размещает объект в корзину с наименьшим остаточным местом.
         """
         sorted_objects = sorted(objects, key=lambda x: x.get_height(), reverse=True)
-        columns = []
+        columns: list[Column] = []
 
         for obj in sorted_objects:
             obj_height = obj.get_height()
@@ -110,7 +110,7 @@ class Packager:
         Сортирует по убыванию и размещает объект в корзину с наибольшим остаточным местом.
         """
         sorted_objects = sorted(objects, key=lambda x: x.get_height(), reverse=True)
-        columns = []
+        columns: list[Column] = []
 
         for obj in sorted_objects:
             obj_height = obj.get_height()

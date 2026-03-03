@@ -1,4 +1,4 @@
-tqdm
-simple-table-dima203~=0.0.6
+tqdm~=4.67.3
+simple-table-dima203~=0.1.0
 loguru~=0.7.3
-flet~=0.80.0
+flet~=0.81.0

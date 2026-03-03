@@ -1,6 +1,7 @@
 from tqdm import tqdm
 
 import timeit
+import functools
 from itertools import zip_longest
 
 from filework import FileReader, FileWriter
@@ -11,6 +12,17 @@ from .raschet import RaschetList
 from .sorting import Packager, Sorter, Column
 
 
+def time_count(func):
+    @functools.wraps(func)
+    def wrap(*args, **kwargs):
+        start = timeit.default_timer()
+        try:
+            return func(*args, **kwargs)
+        finally:
+            logger.info(f"{func.__name__} Время выполнения: {timeit.default_timer() - start:.2f}")
+    return wrap
+
+
 class SheetBuilder:
     def __init__(self) -> None:
         self.raschet_lists: list[RaschetList] = []
@@ -18,18 +30,21 @@ class SheetBuilder:
         self.sheet_height = SETTINGS.SHEET_HEIGHT
         self.one_column_width = SETTINGS.SHEET_WIDTH // 3
 
-    def read(self, input_file_path: str) -> None:
+    def read(self, input_file_path: str, on_progress=None) -> None:
         self.raschet_lists.clear()
 
         with open(input_file_path, "rb") as f:
             num_lines = sum(1 for _ in f)
 
-        with FileReader(input_file_path) as reader:
-            with tqdm(total=num_lines) as progress:
-                for lines, block in reader.read_block():
-                    progress.set_description(f"Чтение файла")
+        with FileReader(input_file_path) as reader, tqdm(total=num_lines) as progress:
+            for lines, block in reader.read_block():
+                progress.set_description(f"Чтение файла")
+                progress.update(lines)
+                if on_progress:
+                    on_progress(progress.n, progress.total)
+
+                if block:
                     self.raschet_lists.append(self._process_block(block))
-                    progress.update(lines)
 
     def write(self, output_file_path: str) -> None:
         with FileWriter(output_file_path) as writer:
@@ -77,52 +92,10 @@ class SheetBuilder:
         return raschet_list
 
     def _get_lines(self) -> list[str]:
-        output_lists = []
-
-        def __f():
-            nonlocal output_lists
-            if SETTINGS.OPTIMIZE_SORT:
-                not_optimized = self.raschet_lists.copy()
-
-                # Предварительно упаковываем листы в колонки (работает быстрее сортировки)
-                package = Packager(not_optimized, self.sheet_height)
-                result = package.run()
-
-                not_optimized = []
-                for column in result:
-                    if column.height != self.sheet_height:
-                        not_optimized.extend(column.items)
-                    else:
-                        output_lists.append(column)
-                logger.info(f"Предварительная оптимизация: {len(output_lists)} оптимизировано и {len(not_optimized)} не оптимизировано")
-                length = 0
-                for column in output_lists:
-                    length += len(column.items)
-                logger.info(f"Всего: {length + len(not_optimized)} записей")
-
-                # Сортируем листы в колонки
-                sorter = Sorter(not_optimized, self.sheet_height)
-                result = sorter.run()
-
-                for column in result:
-                    output_lists.append(column)
-
-                not_optimized = []
-                optimized = []
-                for column in result:
-                    if column.height != self.sheet_height:
-                        not_optimized.extend(column.items)
-                    else:
-                        optimized.extend(column.items)
-
-                logger.info(
-                    f"Оптимизация: {len(optimized) + length} оптимизировано и {len(not_optimized)} не оптимизировано")
-
-            else:
-                output_lists = self._get_columns(self.raschet_lists)
-
-        execution_time = timeit.timeit(lambda: __f(), number=1)
-        logger.info(f"Время выполнения: {execution_time:.2f}")
+        if SETTINGS.OPTIMIZE_SORT:
+            output_lists = self.__sort_lists()
+        else:
+            output_lists = self._get_columns(self.raschet_lists)
 
         length = 0
         for column in output_lists:
@@ -157,11 +130,53 @@ class SheetBuilder:
 
         return lines
 
+    @time_count
+    def __sort_lists(self) -> list[Column]:
+        output_lists = []
+        not_optimized = self.raschet_lists.copy()
+
+        # Предварительно упаковываем листы в колонки (работает быстрее сортировки)
+        package = Packager(not_optimized, self.sheet_height)
+        result = package.run()
+
+        not_optimized = []
+        for column in result:
+            if column.height != self.sheet_height:
+                not_optimized.extend(column.items)
+            else:
+                output_lists.append(column)
+        logger.info(
+            f"Предварительная оптимизация: {len(output_lists)} оптимизировано и {len(not_optimized)} не оптимизировано")
+        length = 0
+        for column in output_lists:
+            length += len(column.items)
+        logger.info(f"Всего: {length + len(not_optimized)} записей")
+
+        # Сортируем листы в колонки
+        sorter = Sorter(not_optimized, self.sheet_height)
+        result = sorter.run()
+
+        for column in result:
+            output_lists.append(column)
+
+        not_optimized = []
+        optimized = []
+        for column in result:
+            if column.height != self.sheet_height:
+                not_optimized.extend(column.items)
+            else:
+                optimized.extend(column.items)
+
+        logger.info(
+            f"Оптимизация: {len(optimized) + length} оптимизировано и {len(not_optimized)} не оптимизировано")
+
+        return output_lists
+
     def _get_columns(self, items: list[RaschetList]) -> list[Column]:
         result = []
 
         with tqdm(total=len(items)) as progress:
-            current_column = Column([], 0)
+            current_column = Column([], 0, self.sheet_height)
             column_number = 1
             for raschet_list in items:
                 progress.set_description(f"Обработка {column_number} колонки")
@@ -169,7 +184,7 @@ class SheetBuilder:
 
                 if current_column.height + raschet_list.get_height() > self.sheet_height:
                     result.append(current_column)
-                    current_column = Column([raschet_list], raschet_list.get_height())
+                    current_column = Column([raschet_list], raschet_list.get_height(), self.sheet_height)
                     column_number += 1
                     continue
 

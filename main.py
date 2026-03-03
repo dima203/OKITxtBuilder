@@ -1,10 +1,11 @@
 import os
 
 from flet import (
+    Event,
     Page,
     FilePicker,
-    FilePickerUploadEvent,
-    ElevatedButton,
+    Button,
+    ProgressBar,
     Row,
     Icons,
     Text,
@@ -14,36 +15,61 @@ from flet import (
     Theme,
     Colors,
     AlertDialog,
-    alignment,
+    Alignment,
+    run
 )
 
-from core.settings import SETTINGS
 from log import logger
 from core import SheetBuilder
 
 
-def main_app(page: Page):
+async def main_app(page: Page):
     page.title = "Подготовка файла к печати"
-    page.theme = Theme(color_scheme_seed=Colors.TEAL)
+    page.theme = Theme(color_scheme_seed=Colors.TEAL, use_material3=True)
     page.vertical_alignment = MainAxisAlignment.CENTER
     page.window.width = 500
     page.window.height = 500
     page.window.resizable = False
-    page.window.center()
+    await page.window.center()
     page.update()
     sheet_builder = SheetBuilder()
 
     error_dialog = AlertDialog(
-        title=Text("Ошибка", color=Colors.ERROR, text_align=TextAlign.CENTER),
-        alignment=alignment.center,
+        title=Text("Ошибка", color=Colors.ERROR),
+        alignment=Alignment.CENTER,
         bgcolor=Colors.ERROR_CONTAINER,
     )
 
     ok_dialog = AlertDialog(
-        title=Text("Готово", color=Colors.PRIMARY, text_align=TextAlign.CENTER),
-        alignment=alignment.center,
+        title=Text("Готово", color=Colors.PRIMARY),
+        alignment=Alignment.CENTER,
         bgcolor=Colors.PRIMARY_CONTAINER,
     )
+
+    def update_progress(current: int, total: int) -> None:
+        progress_bar.value = current / total
+        page.update()
+
+    async def handle_pick_files(e: Event[Button]):
+        files = await FilePicker().pick_files(allow_multiple=False)
+        if files:
+            selected_files.value = files[0].name
+            sheet_builder.read(files[0].path, update_progress)
+            selected_files.update()
+
+    async def handle_save_file(e: Event[Button]):
+        if not selected_files.value:
+            error_dialog.content = Text(
+                "Сначала выберите файл для обработки!", color=Colors.ERROR
+            )
+            page.show_dialog(error_dialog)
+            return
+
+        path = await FilePicker().save_file()
+        if path is None:
+            return
+
+        sheet_builder.write(path)
 
     def pick_file_result(e):
         if e.files is None:
@@ -55,7 +81,7 @@ def main_app(page: Page):
             selected_files.update()
         except Exception:
             error_dialog.content = Text("Ошибка чтения файла!", color=Colors.ERROR)
-            page.open(error_dialog)
+            page.show_dialog(error_dialog)
             logger.warning(f"File {e.files[0].path} has wrong formatting.")
 
     def save_file_result(e):
@@ -66,17 +92,13 @@ def main_app(page: Page):
             error_dialog.content = Text(
                 "Сначала выберите файл для обработки!", color=Colors.ERROR
             )
-            page.open(error_dialog)
+            page.show_dialog(error_dialog)
         else:
             sheet_builder.write(e.path)
-            page.open(ok_dialog)
+            page.show_dialog(ok_dialog)
 
-    pick_file_dialog = FilePicker(on_result=pick_file_result)
-    save_file_dialog = FilePicker(on_result=save_file_result)
     selected_files = Text(width=300, text_align=TextAlign.CENTER)
-
-    page.overlay.append(pick_file_dialog)
-    page.overlay.append(save_file_dialog)
+    progress_bar = ProgressBar(width=300)
 
     page.add(
         Row(
@@ -87,23 +109,22 @@ def main_app(page: Page):
                     alignment=MainAxisAlignment.CENTER,
                     spacing=30,
                     controls=[
-                        ElevatedButton(
+                        Button(
                             "Открыть",
                             width=300,
                             height=70,
                             icon=Icons.UPLOAD_FILE,
-                            on_click=lambda _: pick_file_dialog.pick_files(
-                                allow_multiple=False
-                            ),
+                            on_click=handle_pick_files,
                         ),
                         selected_files,
-                        ElevatedButton(
+                        Button(
                             "Сохранить",
                             width=300,
                             height=70,
                             icon=Icons.SAVE,
-                            on_click=lambda _: save_file_dialog.save_file(),
+                            on_click=handle_save_file,
                         ),
+                        progress_bar,
                     ],
                 )
             ],
@@ -119,5 +140,5 @@ def main_test() -> None:
 
 
 if __name__ == "__main__":
-    # app(main_app)
-    main_test()
+    run(main_app)
+    # main_test()
