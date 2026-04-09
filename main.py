@@ -27,9 +27,9 @@ async def main_app(page: Page):
     page.title = "Подготовка файла к печати"
     page.theme = Theme(color_scheme_seed=Colors.TEAL, use_material3=True)
     page.vertical_alignment = MainAxisAlignment.CENTER
-    page.window.width = 500
-    page.window.height = 500
-    page.window.resizable = False
+    page.window.width = 600
+    page.window.height = 800
+    page.window.resizable = True
     await page.window.center()
     page.update()
     sheet_builder = SheetBuilder()
@@ -46,16 +46,36 @@ async def main_app(page: Page):
         bgcolor=Colors.PRIMARY_CONTAINER,
     )
 
+    def show_progress(text: str | None = None, value: float | None = None) -> None:
+        progress_bar.value = value
+        progress_bar.visible = True
+        progress_text.visible = text is not None
+        progress_text.value = text
+        page.update()
+
+    def hide_progress(text: str | None = None) -> None:
+        progress_bar.value = None
+        progress_bar.visible = False
+        progress_text.visible = text is not None
+        progress_text.value = text
+        page.update()
+
     def update_progress(current: int, total: int) -> None:
         progress_bar.value = current / total
+        progress_bar.update()
         page.update()
 
     async def handle_pick_files(e: Event[Button]):
         files = await FilePicker().pick_files(allow_multiple=False)
         if files:
+            show_progress("Чтение файла", 0)
             selected_files.value = files[0].name
-            sheet_builder.read(files[0].path, update_progress)
+            await sheet_builder.read(files[0].path, update_progress)
             selected_files.update()
+            hide_progress("Файл прочитан")
+        else:
+            hide_progress()
+
 
     async def handle_save_file(e: Event[Button]):
         if not selected_files.value:
@@ -63,13 +83,16 @@ async def main_app(page: Page):
                 "Сначала выберите файл для обработки!", color=Colors.ERROR
             )
             page.show_dialog(error_dialog)
+
             return
 
         path = await FilePicker().save_file()
         if path is None:
             return
 
+        show_progress("Подготовка к сохранению")
         sheet_builder.write(path)
+        hide_progress("Сохранено")
 
     def pick_file_result(e):
         if e.files is None:
@@ -97,8 +120,9 @@ async def main_app(page: Page):
             sheet_builder.write(e.path)
             page.show_dialog(ok_dialog)
 
-    selected_files = Text(width=300, text_align=TextAlign.CENTER)
-    progress_bar = ProgressBar(width=300)
+    selected_files = Text(width=300, text_align=TextAlign.CENTER, visible=False)
+    progress_bar = ProgressBar(width=300, visible=False)
+    progress_text = Text(width=300, text_align=TextAlign.CENTER, visible=False)
 
     page.add(
         Row(
@@ -116,7 +140,6 @@ async def main_app(page: Page):
                             icon=Icons.UPLOAD_FILE,
                             on_click=handle_pick_files,
                         ),
-                        selected_files,
                         Button(
                             "Сохранить",
                             width=300,
@@ -124,12 +147,16 @@ async def main_app(page: Page):
                             icon=Icons.SAVE,
                             on_click=handle_save_file,
                         ),
-                        progress_bar,
+                        selected_files,
+                        Column(
+                            controls = [progress_bar, progress_text]
+                        )
                     ],
                 )
             ],
         )
     )
+    page.update()
 
 
 def main_test() -> None:

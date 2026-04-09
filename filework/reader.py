@@ -19,7 +19,7 @@ class FileReader:
                 if is_block_start:
                     yield lines, block
                     block.clear()
-                    lines = 1
+                    lines = 0
 
                 is_block_start = True
 

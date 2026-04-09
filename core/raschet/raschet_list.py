@@ -98,8 +98,8 @@ class RaschetList:
         min_width = self.get_width()
         self.table.min_table_width = min_width
 
-        self.table.title = f'''СП ОАО Брестгазоаппарат
-Расчетный листок за {self.month} {self.year}г.
+        self.table.supertitle = "СП ОАО Брестгазоаппарат"
+        self.table.title = f'''Расчетный листок за {self.month} {self.year}г.
 {self.name} таб. № {self.tabel_number}
 
 Подразделение {self.otdel}

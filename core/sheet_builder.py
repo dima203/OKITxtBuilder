@@ -2,6 +2,7 @@ from tqdm import tqdm
 
 import timeit
 import functools
+import asyncio
 from itertools import zip_longest
 
 from filework import FileReader, FileWriter
@@ -30,7 +31,8 @@ class SheetBuilder:
         self.sheet_height = SETTINGS.SHEET_HEIGHT
         self.one_column_width = SETTINGS.SHEET_WIDTH // 3
 
-    def read(self, input_file_path: str, on_progress=None) -> None:
+    async def read(self, input_file_path: str, on_progress=None) -> None:
+        logger.info(f"Начало чтения файла: `{input_file_path}`")
         self.raschet_lists.clear()
 
         with open(input_file_path, "rb") as f:
@@ -40,11 +42,13 @@ class SheetBuilder:
             for lines, block in reader.read_block():
                 progress.set_description(f"Чтение файла")
                 progress.update(lines)
+                await asyncio.sleep(0.01)
                 if on_progress:
                     on_progress(progress.n, progress.total)
 
                 if block:
                     self.raschet_lists.append(self._process_block(block))
+        logger.info(f"Файл `{input_file_path}` прочитан. Прочитано {len(self.raschet_lists)} расчетных листов.")
 
     def write(self, output_file_path: str) -> None:
         with FileWriter(output_file_path) as writer:
@@ -196,9 +200,7 @@ class SheetBuilder:
 
     def _get_lines_from_sheet(self, sheet_strings: list[list[str]]) -> list[str]:
         lines = []
-        sheet_lines: list[tuple[str, str, str]] = list(
-            zip_longest(*sheet_strings, fillvalue="")
-        )
+        sheet_lines = list(zip_longest(*sheet_strings, fillvalue=""))
         for line in sheet_lines:
             lines.append(
                 f"{line[0].strip():{self.one_column_width}}{line[1].strip():{self.one_column_width}}{line[2].strip():{self.one_column_width}}\n"
