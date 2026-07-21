@@ -32,6 +32,8 @@ class RaschetList:
         self.table.align["Дн"] = "<"
         self.table.align["Час"] = "<"
 
+        self.table.max_width["Наименование платежа"] = 30
+
         self.table.min_width["Начислено"] = 9
 
         self.table.min_width["Удержано"] = 8
@@ -98,7 +100,7 @@ class RaschetList:
         min_width = self.get_width()
         self.table.min_table_width = min_width
 
-        self.table.supertitle = "СП ОАО Брестгазоаппарат"
+        self.table.supertitle = SETTINGS.BLOCK_TITLE
         self.table.title = f'''Расчетный листок за {self.month} {self.year}г.
 {self.name} таб. № {self.tabel_number}
 

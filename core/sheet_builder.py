@@ -50,10 +50,11 @@ class SheetBuilder:
                     self.raschet_lists.append(self._process_block(block))
         logger.info(f"Файл `{input_file_path}` прочитан. Прочитано {len(self.raschet_lists)} расчетных листов.")
 
-    def write(self, output_file_path: str) -> None:
+    async def write(self, output_file_path: str) -> None:
         with FileWriter(output_file_path) as writer:
             lines = self._get_lines()
             for line in lines:
+                await asyncio.sleep(0.01)
                 writer.write(line)
 
     def _process_block(self, block: list[str]) -> RaschetList:
@@ -139,22 +140,23 @@ class SheetBuilder:
         output_lists = []
         not_optimized = self.raschet_lists.copy()
 
-        # Предварительно упаковываем листы в колонки (работает быстрее сортировки)
-        package = Packager(not_optimized, self.sheet_height)
-        result = package.run()
-
-        not_optimized = []
-        for column in result:
-            if column.height != self.sheet_height:
-                not_optimized.extend(column.items)
-            else:
-                output_lists.append(column)
-        logger.info(
-            f"Предварительная оптимизация: {len(output_lists)} оптимизировано и {len(not_optimized)} не оптимизировано")
         length = 0
-        for column in output_lists:
-            length += len(column.items)
-        logger.info(f"Всего: {length + len(not_optimized)} записей")
+        if len(not_optimized) >= 500:
+            # Предварительно упаковываем листы в колонки (работает быстрее сортировки)
+            package = Packager(not_optimized, self.sheet_height)
+            result = package.run()
+
+            not_optimized = []
+            for column in result:
+                if column.height != self.sheet_height:
+                    not_optimized.extend(column.items)
+                else:
+                    output_lists.append(column)
+            logger.info(
+                f"Предварительная оптимизация: {len(output_lists)} оптимизировано и {len(not_optimized)} не оптимизировано")
+            for column in output_lists:
+                length += len(column.items)
+            logger.info(f"Всего: {length + len(not_optimized)} записей")
 
         # Сортируем листы в колонки
         sorter = Sorter(not_optimized, self.sheet_height)

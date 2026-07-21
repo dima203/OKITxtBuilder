@@ -76,7 +76,6 @@ async def main_app(page: Page):
         else:
             hide_progress()
 
-
     async def handle_save_file(e: Event[Button]):
         if not selected_files.value:
             error_dialog.content = Text(
@@ -91,7 +90,7 @@ async def main_app(page: Page):
             return
 
         show_progress("Подготовка к сохранению")
-        sheet_builder.write(path)
+        await sheet_builder.write(path)
         hide_progress("Сохранено")
 
     def pick_file_result(e):

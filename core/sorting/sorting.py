@@ -16,7 +16,9 @@ class Sorter:
         result = []
 
         # Запускаем несколько процессов вычисления
-        if len(self.items) < 500:
+        if len(self.items) < 100:
+            results = [self._sort(self.items)]
+        elif len(self.items) < 500:
             with Pool() as p:
                 results = p.map(self._sort, [self.items[i::os.cpu_count()] for i in range(os.cpu_count())])
         else:

@@ -12,6 +12,7 @@ class Settings:
     SHEET_WIDTH: int = 231
     FEW_LINES_OUTPUT: bool = True
     OPTIMIZE_SORT: bool = True
+    BLOCK_TITLE: str = ""
     OKI_PARAMETER_LINE: str = ""
     OKI_END_SHEET_LINE: str = ""
 
@@ -23,7 +24,7 @@ def load_settings() -> Settings:
         bundle_dir = os.getcwd()
 
     config = configparser.ConfigParser()
-    config.read(rf"{bundle_dir}\settings.ini")
+    config.read(rf"{bundle_dir}\settings.ini", encoding="utf-8")
 
     try:
         settings = Settings(
@@ -31,7 +32,9 @@ def load_settings() -> Settings:
             config.getint("SHEET", "width"),
             config.getboolean("SHEET", "few_lines_output"),
             config.getboolean("SHEET", "optimize_sort"),
+            config.get("BLOCK", "title")
         )
+        logger.debug(settings)
     except KeyError:
         logger.warning(
             rf"Settings file: {bundle_dir}\settings.ini not found. Using default settings."

@@ -1,6 +1,7 @@
 from typing import Generator, Self
 
 from log import logger
+from core.settings import SETTINGS
 
 
 class FileReader:
@@ -15,7 +16,7 @@ class FileReader:
 
         for line in self.__file:
             lines += 1
-            if line.strip() == "СП ОАО Брестгазоаппарат":
+            if line.strip() == SETTINGS.BLOCK_TITLE:
                 if is_block_start:
                     yield lines, block
                     block.clear()
@@ -30,7 +31,7 @@ class FileReader:
 
     @logger.catch
     def __enter__(self) -> Self:
-        self.__file = open(self.file_path, "r")
+        self.__file = open(self.file_path, "r", encoding="utf-8")
         return self
 
     @logger.catch
