@@ -29,7 +29,7 @@ class SheetBuilder:
         self.raschet_lists: list[RaschetList] = []
         self.sheet_width = SETTINGS.SHEET_WIDTH
         self.sheet_height = SETTINGS.SHEET_HEIGHT
-        self.one_column_width = SETTINGS.SHEET_WIDTH // 3
+        self.one_column_width = (SETTINGS.SHEET_WIDTH - 3) // 3
 
     async def read(self, input_file_path: str, on_progress=None) -> None:
         logger.info(f"Начало чтения файла: `{input_file_path}`")
@@ -50,10 +50,11 @@ class SheetBuilder:
                     self.raschet_lists.append(self._process_block(block))
         logger.info(f"Файл `{input_file_path}` прочитан. Прочитано {len(self.raschet_lists)} расчетных листов.")
 
-    def write(self, output_file_path: str) -> None:
+    async def write(self, output_file_path: str) -> None:
         with FileWriter(output_file_path) as writer:
             lines = self._get_lines()
             for line in lines:
+                await asyncio.sleep(0.01)
                 writer.write(line)
 
     def _process_block(self, block: list[str]) -> RaschetList:
@@ -139,22 +140,23 @@ class SheetBuilder:
         output_lists = []
         not_optimized = self.raschet_lists.copy()
 
-        # Предварительно упаковываем листы в колонки (работает быстрее сортировки)
-        package = Packager(not_optimized, self.sheet_height)
-        result = package.run()
-
-        not_optimized = []
-        for column in result:
-            if column.height != self.sheet_height:
-                not_optimized.extend(column.items)
-            else:
-                output_lists.append(column)
-        logger.info(
-            f"Предварительная оптимизация: {len(output_lists)} оптимизировано и {len(not_optimized)} не оптимизировано")
         length = 0
-        for column in output_lists:
-            length += len(column.items)
-        logger.info(f"Всего: {length + len(not_optimized)} записей")
+        if len(not_optimized) >= 500:
+            # Предварительно упаковываем листы в колонки (работает быстрее сортировки)
+            package = Packager(not_optimized, self.sheet_height)
+            result = package.run()
+
+            not_optimized = []
+            for column in result:
+                if column.height != self.sheet_height:
+                    not_optimized.extend(column.items)
+                else:
+                    output_lists.append(column)
+            logger.info(
+                f"Предварительная оптимизация: {len(output_lists)} оптимизировано и {len(not_optimized)} не оптимизировано")
+            for column in output_lists:
+                length += len(column.items)
+            logger.info(f"Всего: {length + len(not_optimized)} записей")
 
         # Сортируем листы в колонки
         sorter = Sorter(not_optimized, self.sheet_height)
@@ -203,7 +205,7 @@ class SheetBuilder:
         sheet_lines = list(zip_longest(*sheet_strings, fillvalue=""))
         for line in sheet_lines:
             lines.append(
-                f"{line[0].strip():{self.one_column_width}}{line[1].strip():{self.one_column_width}}{line[2].strip():{self.one_column_width}}\n"
+                f"{line[0].strip():{self.one_column_width}} {line[1].strip():{self.one_column_width}} {line[2].strip():{self.one_column_width}}\n"
             )
 
         lines.append(SETTINGS.OKI_END_SHEET_LINE)
