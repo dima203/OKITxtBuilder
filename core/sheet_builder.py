@@ -29,7 +29,7 @@ class SheetBuilder:
         self.raschet_lists: list[RaschetList] = []
         self.sheet_width = SETTINGS.SHEET_WIDTH
         self.sheet_height = SETTINGS.SHEET_HEIGHT
-        self.one_column_width = (SETTINGS.SHEET_WIDTH - 3) // 3
+        self.one_column_width = SETTINGS.SHEET_WIDTH // 3 - SETTINGS.COLUMNS_SPACING
 
     async def read(self, input_file_path: str, on_progress=None) -> None:
         logger.info(f"Начало чтения файла: `{input_file_path}`")
@@ -42,19 +42,19 @@ class SheetBuilder:
             for lines, block in reader.read_block():
                 progress.set_description(f"Чтение файла")
                 progress.update(lines)
-                await asyncio.sleep(0.01)
+                await asyncio.sleep(0.001)
                 if on_progress:
                     on_progress(progress.n, progress.total)
 
                 if block:
                     self.raschet_lists.append(self._process_block(block))
         logger.info(f"Файл `{input_file_path}` прочитан. Прочитано {len(self.raschet_lists)} расчетных листов.")
+        return len(self.raschet_lists)
 
     async def write(self, output_file_path: str) -> None:
         with FileWriter(output_file_path) as writer:
             lines = self._get_lines()
             for line in lines:
-                await asyncio.sleep(0.01)
                 writer.write(line)
 
     def _process_block(self, block: list[str]) -> RaschetList:
@@ -63,7 +63,7 @@ class SheetBuilder:
         raschet_list.set_month(month, int(year))
         name, tabel_number = block[4].split(" таб. № ")
         raschet_list.set_name(name)
-        raschet_list.set_tabel_number(int(tabel_number))
+        raschet_list.set_tabel_number(str(tabel_number.strip()))
         raschet_list.set_otdel(block[6].split("\t")[2])
         try:
             raschet_list.set_salary(int(block[8].split("\t")[2]))
@@ -84,7 +84,7 @@ class SheetBuilder:
         start_index = 0
         for i, line in enumerate(block[9:]):
             if line.startswith("Начисление"):
-                start_index = i + 3 + 9
+                start_index = i + 2 + 9
 
         for line in block[start_index:]:
             if line == "":
@@ -201,11 +201,15 @@ class SheetBuilder:
         return result
 
     def _get_lines_from_sheet(self, sheet_strings: list[list[str]]) -> list[str]:
+        if not sheet_strings[0] and not sheet_strings[1] and not sheet_strings[2]:
+            return []
         lines = []
         sheet_lines = list(zip_longest(*sheet_strings, fillvalue=""))
         for line in sheet_lines:
             lines.append(
-                f"{line[0].strip():{self.one_column_width}} {line[1].strip():{self.one_column_width}} {line[2].strip():{self.one_column_width}}\n"
+                f"{line[0].strip():{self.one_column_width}}{" "*SETTINGS.COLUMNS_SPACING}"
+                f"{line[1].strip():{self.one_column_width}}{" "*SETTINGS.COLUMNS_SPACING}"
+                f"{line[2].strip():{self.one_column_width}}\n"
             )
 
         lines.append(SETTINGS.OKI_END_SHEET_LINE)

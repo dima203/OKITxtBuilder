@@ -23,14 +23,14 @@ class Sorter:
                 results = p.map(self._sort, [self.items[i::os.cpu_count()] for i in range(os.cpu_count())])
         else:
             with Pool() as p:
-                results = p.map(self._sort, [self.items[i::48] for i in range(48)])
+                results = p.map(self._sort, [self.items[i:i+100:] for i in range(0, len(self.items), 100)])
 
         for columns in results:
             result.extend(columns)
 
         return result
 
-    def _sort(self, objects: list[RaschetList]):
+    def _sort(self, objects: list[RaschetList]) -> list[Column]:
         list_copy = objects.copy()
         result_lists: list[Column] = []
 

@@ -1,4 +1,5 @@
 import os
+import asyncio
 
 from flet import (
     Event,
@@ -70,9 +71,16 @@ async def main_app(page: Page):
         if files:
             show_progress("Чтение файла", 0)
             selected_files.value = files[0].name
-            await sheet_builder.read(files[0].path, update_progress)
-            selected_files.update()
-            hide_progress("Файл прочитан")
+            try:
+                count = await sheet_builder.read(files[0].path, update_progress)
+                selected_files.update()
+                hide_progress(f"Файл прочитан\n{count} расчетных листов")
+            except Exception as e:
+                error_dialog.content = Text("Ошибка чтения файла!", color=Colors.ERROR)
+                page.show_dialog(error_dialog)
+                hide_progress("Ошибка")
+                logger.warning(f"Ошибка чтения файла {files[0].path}")
+                logger.exception(e)
         else:
             hide_progress()
 
@@ -90,34 +98,9 @@ async def main_app(page: Page):
             return
 
         show_progress("Подготовка к сохранению")
+        await asyncio.sleep(0.1)
         await sheet_builder.write(path)
         hide_progress("Сохранено")
-
-    def pick_file_result(e):
-        if e.files is None:
-            return
-
-        try:
-            sheet_builder.read(e.files[0].path)
-            selected_files.value = e.files[0].name
-            selected_files.update()
-        except Exception:
-            error_dialog.content = Text("Ошибка чтения файла!", color=Colors.ERROR)
-            page.show_dialog(error_dialog)
-            logger.warning(f"File {e.files[0].path} has wrong formatting.")
-
-    def save_file_result(e):
-        if e.path is None:
-            return
-
-        if selected_files.value is None:
-            error_dialog.content = Text(
-                "Сначала выберите файл для обработки!", color=Colors.ERROR
-            )
-            page.show_dialog(error_dialog)
-        else:
-            sheet_builder.write(e.path)
-            page.show_dialog(ok_dialog)
 
     selected_files = Text(width=300, text_align=TextAlign.CENTER, visible=False)
     progress_bar = ProgressBar(width=300, visible=False)
@@ -138,6 +121,7 @@ async def main_app(page: Page):
                             height=70,
                             icon=Icons.UPLOAD_FILE,
                             on_click=handle_pick_files,
+                            active=False,
                         ),
                         Button(
                             "Сохранить",

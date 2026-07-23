@@ -10,6 +10,7 @@ from log import logger
 class Settings:
     SHEET_HEIGHT: int = 92
     SHEET_WIDTH: int = 231
+    COLUMNS_SPACING: int = 1
     FEW_LINES_OUTPUT: bool = True
     OPTIMIZE_SORT: bool = True
     BLOCK_TITLE: str = ""
@@ -32,6 +33,7 @@ def load_settings() -> Settings:
         settings = Settings(
             config.getint("SHEET", "height"),
             config.getint("SHEET", "width"),
+            config.getint("SHEET", "columns_spacing"),
             config.getboolean("SHEET", "few_lines_output"),
             config.getboolean("SHEET", "optimize_sort"),
             config.get("BLOCK", "title")

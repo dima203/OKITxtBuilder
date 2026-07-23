@@ -38,13 +38,15 @@ class RaschetList:
 
         self.table.min_width["Удержано"] = 8
 
+        self.table.min_width["Прим"] = 4
+
         self.table.max_width["Месяц"] = 5
         self.table.min_width["Месяц"] = 5
 
         self.table.max_width["Дн"] = 2
         self.table.min_width["Дн"] = 2
 
-        self.table.max_width["Час"] = 5
+        self.table.max_width["Час"] = 6
         self.table.min_width["Час"] = 3
 
         self.name = ""
@@ -55,11 +57,15 @@ class RaschetList:
         self.salary = 0
         self.rate = 0
         self.start_period = 0
+        self.is_income = True
 
     def add_table_row(self, row: list) -> None:
         row = self._process_row(row)
         if "".join(row[1:]) == "":
-            self.table.add_delimiter(row[0])
+            self.table.add_delimiter(self._position_formatter(row[0]))
+        elif self.is_income and row[2] == "" and row[3] != "":
+            self.table.add_delimiter()
+            self.is_income = False
         elif row[0].startswith("ИТОГО"):
             self.table.add_delimiter(row[0])
         else:
@@ -99,13 +105,11 @@ class RaschetList:
         return calculated_max if calculated_max <= self.max_width else self.max_width
 
     def __str__(self) -> str:
-        min_width = self.get_width()
-        self.table.min_table_width = min_width
+        self.table.min_table_width = self.get_width()
 
         self.table.supertitle = SETTINGS.BLOCK_TITLE
         self.table.title = f'''Расчетный листок за {self.month} {self.year}г.
 {self.name} таб. № {self.tabel_number}
-
 Подразделение {self.otdel}
 Оклад/Тариф {self._number_formatter(str(self.salary))} Ставка {self.rate}
 На начало периода {self._number_formatter(str(self.start_period))}'''
@@ -133,9 +137,7 @@ class RaschetList:
         code, *text = value.strip().split(" ")
         text = " ".join(text)
         if code[0].isnumeric():
-            text = f"{code: <3} {text}"
-        elif code == "Оклад":
-            text = f"    {code} {text}"
+            text = f"{code: <4} {text}"
         else:
             text = f"{code} {text}"
 
@@ -153,6 +155,11 @@ class RaschetList:
     #     else:
     #         formatted_string = f"{self.table.style.vertical_character}{title_string: <{self.get_width() - 2}}{self.table.style.vertical_character}"
     #     return formatted_string
+
+    @staticmethod
+    def _position_formatter(value: str) -> str:
+        index = value.find("(СП ОАО БРЕСТГАЗОАППАРАТ/")
+        return value[:index].strip()
 
     @staticmethod
     def _length_formatter(value: str, max_length: int) -> str:

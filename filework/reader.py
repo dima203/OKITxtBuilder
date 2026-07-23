@@ -1,3 +1,5 @@
+from charset_normalizer import from_bytes
+
 from typing import Generator, Self
 
 from log import logger
@@ -31,9 +33,16 @@ class FileReader:
 
     @logger.catch
     def __enter__(self) -> Self:
-        self.__file = open(self.file_path, "r", encoding="utf-8")
+        self.__file = open(self.file_path, "r", encoding=self.__get_encoding())
         return self
 
     @logger.catch
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         self.__file.close()
+
+    def __get_encoding(self) -> str | None:
+        with open(self.file_path, 'rb') as f:
+            raw_data = f.read()
+            result = from_bytes(raw_data).best()
+            if result:
+                return result.encoding
