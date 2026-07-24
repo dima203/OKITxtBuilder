@@ -69,18 +69,25 @@ async def main_app(page: Page):
     async def handle_pick_files(e: Event[Button]):
         files = await FilePicker().pick_files(allow_multiple=False)
         if files:
+            open_button.disabled = True
+            save_button.disabled = True
             show_progress("Чтение файла", 0)
             selected_files.value = files[0].name
             try:
                 count = await sheet_builder.read(files[0].path, update_progress)
                 selected_files.update()
                 hide_progress(f"Файл прочитан\n{count} расчетных листов")
+                save_button.disabled = False
+                open_button.disabled = False
+                page.update()
             except Exception as e:
                 error_dialog.content = Text("Ошибка чтения файла!", color=Colors.ERROR)
                 page.show_dialog(error_dialog)
                 hide_progress("Ошибка")
                 logger.warning(f"Ошибка чтения файла {files[0].path}")
                 logger.exception(e)
+                open_button.disabled = False
+                page.update()
         else:
             hide_progress()
 
@@ -97,14 +104,34 @@ async def main_app(page: Page):
         if path is None:
             return
 
+        save_button.disabled = True
+        open_button.disabled = True
         show_progress("Подготовка к сохранению")
         await asyncio.sleep(0.1)
         await sheet_builder.write(path)
         hide_progress("Сохранено")
+        save_button.disabled = False
+        open_button.disabled = False
+        page.update()
 
     selected_files = Text(width=300, text_align=TextAlign.CENTER, visible=False)
     progress_bar = ProgressBar(width=300, visible=False)
     progress_text = Text(width=300, text_align=TextAlign.CENTER, visible=False)
+    open_button = Button(
+        "Открыть",
+        width=300,
+        height=70,
+        icon=Icons.UPLOAD_FILE,
+        on_click=handle_pick_files,
+    )
+    save_button = Button(
+        "Сохранить",
+        width=300,
+        height=70,
+        icon=Icons.SAVE,
+        on_click=handle_save_file,
+        disabled=True,
+    )
 
     page.add(
         Row(
@@ -115,21 +142,8 @@ async def main_app(page: Page):
                     alignment=MainAxisAlignment.CENTER,
                     spacing=30,
                     controls=[
-                        Button(
-                            "Открыть",
-                            width=300,
-                            height=70,
-                            icon=Icons.UPLOAD_FILE,
-                            on_click=handle_pick_files,
-                            active=False,
-                        ),
-                        Button(
-                            "Сохранить",
-                            width=300,
-                            height=70,
-                            icon=Icons.SAVE,
-                            on_click=handle_save_file,
-                        ),
+                        open_button,
+                        save_button,
                         selected_files,
                         Column(
                             controls = [progress_bar, progress_text]
