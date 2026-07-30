@@ -156,13 +156,5 @@ async def main_app(page: Page):
     page.update()
 
 
-def main_test() -> None:
-    sheet_builder = SheetBuilder()
-    sheet_builder.read(f"{os.path.dirname(__file__)}/Print_OKI/payslips_random.txt")
-    # sheet_builder.read(f"{os.path.dirname(__file__)}/Print_OKI/raschet_2.txt")
-    sheet_builder.write(f"{os.path.dirname(__file__)}/1.txt")
-
-
 if __name__ == "__main__":
-    run(main_app)
-    # main_test()
+    run(main_app, assets_dir="assets")

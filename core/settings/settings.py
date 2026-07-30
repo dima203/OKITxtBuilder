@@ -2,6 +2,7 @@ import dataclasses
 import configparser
 import os
 import sys
+from pathlib import Path
 
 from log import logger
 
@@ -20,14 +21,15 @@ class Settings:
 
 def load_settings() -> Settings:
     if getattr(sys, "frozen", False):
-        bundle_dir = os.path.dirname(sys.executable)
+        bundle_dir = Path(os.path.dirname(sys.executable))
     else:
-        bundle_dir = os.getcwd()
+        bundle_dir = Path(os.getcwd())
 
-    print(bundle_dir)
+    default_dir = bundle_dir / "assets"
+    assets_path = Path(os.environ.get("FLET_ASSETS_DIR", str(default_dir)))
 
     config = configparser.ConfigParser()
-    config.read(rf"{bundle_dir}\settings.ini", encoding="utf-8")
+    config.read(assets_path /  "settings" / "settings.ini", encoding="utf-8")
 
     try:
         settings = Settings(
@@ -46,11 +48,11 @@ def load_settings() -> Settings:
         settings = Settings()
 
     with open(
-        rf"{bundle_dir}/OKI/OK{settings.SHEET_HEIGHT}_{settings.SHEET_WIDTH}", "r"
+        assets_path / "settings" / "OKI" / f"OK{settings.SHEET_HEIGHT}_{settings.SHEET_WIDTH}", "r"
     ) as f:
         settings.OKI_PARAMETER_LINE = f.readline()
 
-    with open(rf"{bundle_dir}/OKI/OK_END_SHEET", "r") as f:
+    with open(assets_path / "settings" / "OKI" / "OK_END_SHEET", "r") as f:
         settings.OKI_END_SHEET_LINE = f.readline()
 
     return settings
