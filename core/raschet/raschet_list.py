@@ -52,6 +52,7 @@ class RaschetList:
         self.name = ""
         self.tabel_number = 0
         self.otdel = ""
+        self.otdel_code = ""
         self.month = ""
         self.year = 0
         self.salary = 0
@@ -79,6 +80,9 @@ class RaschetList:
 
     def set_otdel(self, otdel: str) -> None:
         self.otdel = otdel
+
+    def set_otdel_code(self, otdel_code: str) -> None:
+        self.otdel_code = otdel_code
 
     def set_month(self, month: str, year: int) -> None:
         self.month = month

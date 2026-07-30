@@ -103,8 +103,9 @@ class SheetBuilder:
             output_lists = self._get_columns(self.raschet_lists)
 
         length = 0
-        for column in output_lists:
-            length += len(column.items)
+        for otdel, columns in output_lists.items():
+            for column in columns:
+                length += len(column.items)
         logger.info(f"Всего {length} записей")
 
         lines = []
@@ -115,66 +116,75 @@ class SheetBuilder:
         with tqdm(total=len(output_lists)) as progress:
             pages = 1
             current_col = 0
-            for column in output_lists:
-                progress.set_description(f"Обработка {pages} листа")
+            for otdel, columns in output_lists.items():
+                for column in columns:
+                    progress.set_description(f"Обработка {pages} листа")
 
-                for item in column.items:
-                    sheet_strings[current_col].extend(str(item).split("\n"))
+                    for item in column.items:
+                        sheet_strings[current_col].extend(str(item).split("\n"))
 
-                progress.update()
+                    progress.update()
 
-                current_col += 1
-                if current_col == 3:
-                    current_col = 0
-                    pages += 1
-                    lines.extend(self._get_lines_from_sheet(sheet_strings))
-                    sheet_strings = [[], [], []]
+                    current_col += 1
+                    if current_col == 3:
+                        current_col = 0
+                        pages += 1
+                        lines.extend(self._get_lines_from_sheet(sheet_strings))
+                        sheet_strings = [[], [], []]
 
-            lines.extend(self._get_lines_from_sheet(sheet_strings))
-            lines.append(SETTINGS.OKI_END_SHEET_LINE)
+                lines.extend(self._get_lines_from_sheet(sheet_strings))
+                lines.append(SETTINGS.OKI_END_SHEET_LINE)
 
         return lines
 
     @time_count
-    def __sort_lists(self) -> list[Column]:
-        output_lists = []
-        not_optimized = self.raschet_lists.copy()
+    def __sort_lists(self) -> dict[str, list[Column]]:
+        output_lists = {}
+        not_optimized = {}
+        for item in self.raschet_lists:
+            if item.otdel_code not in output_lists:
+                output_lists[item.otdel_code] = []
+                not_optimized[item.otdel_code] = []
 
-        length = 0
-        if len(not_optimized) >= 500:
-            # Предварительно упаковываем листы в колонки (работает быстрее сортировки)
-            package = Packager(not_optimized, self.sheet_height)
-            result = package.run()
+            not_optimized[item.otdel_code].append(item)
 
-            not_optimized = []
+        for otdel, lists in not_optimized.items():
+            length = 0
+            if len(lists) >= 500:
+                # Предварительно упаковываем листы в колонки (работает быстрее сортировки)
+                package = Packager(lists, self.sheet_height)
+                result = package.run()
+
+                lists = []
+                for column in result:
+                    if column.height != self.sheet_height:
+                        lists.extend(column.items)
+                    else:
+                        output_lists[otdel].append(column)
+                logger.info(
+                    f"[{otdel}] Предварительная оптимизация: {len(output_lists[otdel])} оптимизировано и {len(lists)} не оптимизировано")
+                for column in output_lists[otdel]:
+                    length += len(column.items)
+                logger.info(f"[{otdel}] Всего: {length + len(lists)} записей")
+
+            # Сортируем листы в колонки
+            sorter = Sorter(lists, self.sheet_height)
+            result = sorter.run()
+
+            for column in result:
+                output_lists[otdel].append(column)
+
+            lists = []
+            optimized = []
             for column in result:
                 if column.height != self.sheet_height:
-                    not_optimized.extend(column.items)
+                    lists.extend(column.items)
                 else:
-                    output_lists.append(column)
+                    optimized.extend(column.items)
+
             logger.info(
-                f"Предварительная оптимизация: {len(output_lists)} оптимизировано и {len(not_optimized)} не оптимизировано")
-            for column in output_lists:
-                length += len(column.items)
-            logger.info(f"Всего: {length + len(not_optimized)} записей")
-
-        # Сортируем листы в колонки
-        sorter = Sorter(not_optimized, self.sheet_height)
-        result = sorter.run()
-
-        for column in result:
-            output_lists.append(column)
-
-        not_optimized = []
-        optimized = []
-        for column in result:
-            if column.height != self.sheet_height:
-                not_optimized.extend(column.items)
-            else:
-                optimized.extend(column.items)
-
-        logger.info(
-            f"Оптимизация: {len(optimized) + length} оптимизировано и {len(not_optimized)} не оптимизировано")
+                f"[{otdel}] Оптимизация: {len(optimized) + length} оптимизировано и {len(lists)} не "
+                f"оптимизировано")
 
         return output_lists
 
