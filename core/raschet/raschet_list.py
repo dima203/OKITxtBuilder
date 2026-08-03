@@ -20,7 +20,7 @@ class RaschetList:
         ])
         self.table.wrap = SETTINGS.FEW_LINES_OUTPUT
         self.table.max_table_width = self.max_width
-        self.table.style.vertical_character = ":"
+        self.table.style.vertical_character = "∙"
         self.table.title_border = True
         self.table.title_align = "<"
 
@@ -50,7 +50,7 @@ class RaschetList:
         self.table.min_width["Час"] = 3
 
         self.name = ""
-        self.tabel_number = 0
+        self.tabel_number = "-"
         self.otdel = ""
         self.otdel_code = ""
         self.month = ""
@@ -75,7 +75,7 @@ class RaschetList:
     def set_name(self, name: str) -> None:
         self.name = name
 
-    def set_tabel_number(self, tabel_number: int) -> None:
+    def set_tabel_number(self, tabel_number: str) -> None:
         self.tabel_number = tabel_number
 
     def set_otdel(self, otdel: str) -> None:
